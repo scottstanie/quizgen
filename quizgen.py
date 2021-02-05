@@ -22,9 +22,9 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+import argparse
 import random
 from xml.dom import minidom
-import sys
 import re
 import itertools
 
@@ -37,11 +37,12 @@ Parse the Quiz to create a python dict
 class QuizParser:
     """Parses the quiz and returns it in a python dict"""
 
-    def __init__(self, filename):
+    def __init__(self, filename, shuffle=True):
         if ".quiz" in filename:
             self.filename = filename
         else:
             self.filename = "%s.quiz" % filename
+        self.shuffle = shuffle
 
     def get_filename(self):
         return self.filename
@@ -208,10 +209,11 @@ class QuizParser:
                     raise Exception(
                         'ERROR. Are you sure you started every problem group with "[]"?'
                     )
-        for pg in quiz["problem_groups"]:
-            random.shuffle(pg["questions"])
-            for ql in pg["questions"]:
-                random.shuffle(ql["options"])
+        if self.shuffle:
+            for pg in quiz["problem_groups"]:
+                random.shuffle(pg["questions"])
+                for ql in pg["questions"]:
+                    random.shuffle(ql["options"])
         return quiz
 
 
@@ -457,9 +459,7 @@ def add_dom_to_template(dom, html_file_name, quiz):
         generated_css_file.close()
 
 
-def usage():
-    print(
-        """
+USAGE = """
   Usage: python quizgen.py SOURCE_QUIZ_FILE.
   You may like to:
   sudo cp quizgen.py /usr/bin/quizgen
@@ -481,7 +481,6 @@ def usage():
   More information and a lot of sample quizzes file can be found on:
   https://github.com/karanveerm/quizgen
   """
-    )
 
 
 def create_sample():
@@ -522,14 +521,24 @@ def get_footer():
 
 
 def main():
-    # TODO: Stop being lazy and use optparse.
-    if len(sys.argv) < 2 or "-h" in sys.argv[1]:
-        usage()
-    elif "-c" in sys.argv[1]:
+    parser = argparse.ArgumentParser(usage=USAGE)
+    parser.add_argument(
+        "--create", "-c", action="store_true", help="Create sample quiz"
+    )
+    parser.add_argument(
+        "--no-shuffle",
+        action="store_true",
+        help="Skip shuffling questions and choices",
+    )
+    parser.add_argument("filenames", nargs="*", help="Names of .quiz files to convert")
+    args = parser.parse_args()
+    if not (args.create or args.filenames):
+        print(USAGE)
+    elif args.create:
         create_sample()
     else:
-        for filename in sys.argv[1:]:
-            quiz_parser = QuizParser(filename)
+        for filename in args.filenames:
+            quiz_parser = QuizParser(filename, shuffle=not args.no_shuffle)
 
             quiz = quiz_parser.parse()
 
